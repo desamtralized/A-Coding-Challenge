@@ -1,6 +1,6 @@
 import { StatusBar } from 'expo-status-bar';
 import React, { Component } from 'react';
-import { StyleSheet, Text, View, Dimensions, Pressable } from 'react-native';
+import { StyleSheet, Text, View, Dimensions, Pressable, ActivityIndicator } from 'react-native';
 import AssetsSelector from './components/AssetsSelector';
 import { ApolloClient, InMemoryCache, gql } from '@apollo/client';
 import { LineChart } from 'react-native-chart-kit';
@@ -50,18 +50,30 @@ class App extends Component {
   }
 
   setChartType(chartType) {
-    this.setState({chartType})
+    this.setState({chartType}, () => {
+      this.loadAssetPrices(this.state.mAsset)
+    })
   }
  
   loadAssetPrices(mAsset) {
+    this.setState({loading: true})
     let to = new Date().getTime()
-    let from = new Date(to - (DAY/3)).getTime()
+    let from, interval
+    if (this.state.chartType == CHART_TYPE_HOUR) {
+      console.log('Load Hourly chart')
+      from = new Date(to - (DAY/3)).getTime()
+      interval = 60 //minutes
+    } else {
+      console.log('Load daily chart')
+      from = new Date(to - (DAY * 7)).getTime()
+      interval = 24 * 60 //1 day in minutes
+    }
 
     this.client.query({
       query: this.GET_PRICES,
       variables: {
         contract: mAsset.token,
-        interval: 60, 
+        interval,
         from, 
         to
       }
@@ -80,10 +92,20 @@ class App extends Component {
     let mAsset = this.state.mAsset
     let [history, labels] = this.state.history.reduce((accum, val) => {
       accum[0].push(parseFloat(val.price))
-      let time = new Date(parseInt(val.timestamp))
-      let minutes = time.getMinutes()
-      minutes = minutes < 10 ? '0' + minutes : minutes
-      accum[1].push(`${time.getHours()}:${minutes}`)
+
+      let date = new Date(parseInt(val.timestamp))
+      if (this.state.chartType == CHART_TYPE_HOUR) {
+        let minutes = date.getMinutes()
+        minutes = minutes < 10 ? '0' + minutes : minutes
+        accum[1].push(`${date.getHours()}:${minutes}`)
+      } else {
+        let month = date.getMonth() + 1
+        let day = date.getDate()
+        month = month < 10 ? '0' + month : month
+        day = day < 10 ? '0' + day : day 
+        accum[1].push(`${month}/${day}`)
+      }
+
       return accum;
     }, [[], []])
 
@@ -93,7 +115,7 @@ class App extends Component {
     }, [[]])
 
     let chartData = {
-      legend: [mAsset.name],
+      legend: ['Terraswap Price', 'Oracle Price'],
       labels,
       datasets: [{
         data: history,
@@ -112,7 +134,7 @@ class App extends Component {
       }]
     }
 
-    this.setState({chartData})
+    this.setState({chartData, loading: false})
   }
 
   render() {
@@ -121,6 +143,8 @@ class App extends Component {
         <StatusBar style="auto" />
         <AssetsSelector onAssetSelected={this.loadAssetPrices}/>
         <View style={styles.chartContainer}>
+          {this.state.loading && 
+            <ActivityIndicator size="large" color="#00ff00" />}
           {this.state.chartData && <LineChart
             data={this.state.chartData}
             width={screenWidth}
