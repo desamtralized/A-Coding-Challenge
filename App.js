@@ -33,7 +33,7 @@ class App extends Component {
 
    constructor(props) {
     super(props)
-    this.state = {chartType: CHART_TYPE_HOUR}
+    this.state = {chartType: CHART_TYPE_HOUR, lastOraclePrice: 0, lastTerraSwapPrice: 0}
     this.setChartType = this.setChartType.bind(this)
     this.loadAssetPrices = this.loadAssetPrices.bind(this)
     this.updateChart = this.updateChart.bind(this)
@@ -60,11 +60,11 @@ class App extends Component {
     let to = new Date().getTime()
     let from, interval
     if (this.state.chartType == CHART_TYPE_HOUR) {
-      console.log('Load Hourly chart')
+      to = to - (HOUR/4)
       from = new Date(to - (DAY/3)).getTime()
       interval = 60 //minutes
     } else {
-      console.log('Load daily chart')
+      to = to - (DAY/2)
       from = new Date(to - (DAY * 7)).getTime()
       interval = 24 * 60 //1 day in minutes
     }
@@ -89,7 +89,6 @@ class App extends Component {
   }
 
   updateChart() {
-    let mAsset = this.state.mAsset
     let [history, labels] = this.state.history.reduce((accum, val) => {
       accum[0].push(parseFloat(val.price))
 
@@ -134,7 +133,26 @@ class App extends Component {
       }]
     }
 
-    this.setState({chartData, loading: false})
+    let lastTerraSwapPrice, lastOraclePrice, priceChange
+    if (history.length >= 2 && oracleHistory.length >= 2) {
+      lastTerraSwapPrice = history[history.length - 1]
+      priceChange = lastTerraSwapPrice - history[history.length - 2]
+      lastOraclePrice = oracleHistory[oracleHistory.length - 1].toFixed(2)
+      lastTerraSwapPrice = lastTerraSwapPrice.toFixed(2)
+      if (this.state.chartType == CHART_TYPE_DAY) {
+        priceChange = priceChange.toFixed(2) + ' in the last Day'
+      } else {
+        priceChange = priceChange.toFixed(2) + ' in the last Hour'
+      }
+    }
+
+    this.setState({
+      chartData, 
+      loading: false, 
+      lastOraclePrice, 
+      lastTerraSwapPrice,
+      priceChange
+    })
   }
 
   render() {
@@ -142,6 +160,11 @@ class App extends Component {
       <View style={styles.container}>
         <StatusBar style="auto" />
         <AssetsSelector onAssetSelected={this.loadAssetPrices}/>
+        <View style={styles.labelsContainer}>
+          <Text style={styles.label}>Last Oracle Price: ${this.state.lastOraclePrice}</Text>
+          <Text style={styles.label}>Last TerraSwap Price: ${this.state.lastTerraSwapPrice}</Text>
+          <Text style={styles.label}>TerraSwap Price Change: ${this.state.priceChange}</Text>
+        </View>
         <View style={styles.chartContainer}>
           {this.state.chartData && <LineChart
             data={this.state.chartData}
@@ -179,7 +202,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#1F2023'
   },
   chartContainer: {
-    marginVertical: 10,
+    marginTop: 26,
     height: 220,
     justifyContent: 'center'
   },
@@ -212,6 +235,14 @@ const styles = StyleSheet.create({
   loading: {
     position: 'absolute',
     alignSelf: 'center',
+  }, 
+  labelsContainer: {
+    marginTop: 8,
+    paddingHorizontal: 16,
+    width: '100%'
+  },
+  label: {
+    color: '#7f7f7f'
   }
 });
 
