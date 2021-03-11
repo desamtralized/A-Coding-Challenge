@@ -143,13 +143,13 @@ class App extends Component {
         <StatusBar style="auto" />
         <AssetsSelector onAssetSelected={this.loadAssetPrices}/>
         <View style={styles.chartContainer}>
-          {this.state.loading && 
-            <ActivityIndicator size="large" color="#00ff00" />}
           {this.state.chartData && <LineChart
             data={this.state.chartData}
             width={screenWidth}
             height={220}
             chartConfig={chartConfig}/>}
+          {this.state.loading && <ActivityIndicator size="large" 
+            color="#00ff00" style={styles.loading} />}
         </View>
         <View style={styles.timeButtonsContainer}>
           <Pressable style={[styles.timeButton, {
@@ -180,7 +180,8 @@ const styles = StyleSheet.create({
   },
   chartContainer: {
     marginVertical: 10,
-    height: 220
+    height: 220,
+    justifyContent: 'center'
   },
   timeButtonsContainer: {
     width: '100%',
@@ -207,6 +208,10 @@ const styles = StyleSheet.create({
     width: '100%',
     alignContent: 'center',
     color: '#7f7f7f'
+  },
+  loading: {
+    position: 'absolute',
+    alignSelf: 'center',
   }
 });
 
