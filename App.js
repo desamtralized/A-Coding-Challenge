@@ -4,6 +4,7 @@ import { StyleSheet, Text, View, Dimensions, Pressable, ActivityIndicator } from
 import AssetsSelector from './components/AssetsSelector';
 import { ApolloClient, InMemoryCache, gql } from '@apollo/client';
 import { LineChart } from 'react-native-chart-kit';
+import CheckBox from '@react-native-community/checkbox';
 
 const screenWidth = Dimensions.get("window").width;
 
@@ -33,10 +34,19 @@ class App extends Component {
 
    constructor(props) {
     super(props)
-    this.state = {chartType: CHART_TYPE_HOUR, lastOraclePrice: 0, lastTerraSwapPrice: 0}
+    this.state = {
+      chartType: CHART_TYPE_HOUR, 
+      lastOraclePrice: 0, 
+      lastTerraSwapPrice: 0,
+      showOraclePrice: true,
+      showTerraSwapPrice: true
+    }
+
     this.setChartType = this.setChartType.bind(this)
     this.loadAssetPrices = this.loadAssetPrices.bind(this)
     this.updateChart = this.updateChart.bind(this)
+    this.setShowTerraSwapPrice = this.setShowTerraSwapPrice.bind(this)
+    this.setShowOraclePrice = this.setShowOraclePrice.bind(this)
 
     this.client = new ApolloClient({
       uri: 'https://graph.mirror.finance/graphql',
@@ -88,10 +98,19 @@ class App extends Component {
     }).catch(e => console.error(e))
   }
 
+  setShowTerraSwapPrice(val) {
+    this.setState({showTerraSwapPrice: val}, this.updateChart)
+  }
+
+  setShowOraclePrice(val) {
+    this.setState({showOraclePrice: val}, this.updateChart)
+  }
+
   updateChart() {
     let [history, labels] = this.state.history.reduce((accum, val) => {
-      accum[0].push(parseFloat(val.price))
-
+      if (this.state.showTerraSwapPrice) {
+        accum[0].push(parseFloat(val.price))
+      }
       let date = new Date(parseInt(val.timestamp))
       if (this.state.chartType == CHART_TYPE_HOUR) {
         let minutes = date.getMinutes()
@@ -109,7 +128,9 @@ class App extends Component {
     }, [[], []])
 
     let [oracleHistory] = this.state.oracleHistory.reduce((accum, val) => {
-      accum[0].push(parseFloat(val.price))
+      if (this.state.showOraclePrice) {
+        accum[0].push(parseFloat(val.price))
+      }
       return accum;
     }, [[]])
 
@@ -134,16 +155,18 @@ class App extends Component {
     }
 
     let lastTerraSwapPrice, lastOraclePrice, priceChange
-    if (history.length >= 2 && oracleHistory.length >= 2) {
+    if (history.length >= 2) {
       lastTerraSwapPrice = history[history.length - 1]
       priceChange = lastTerraSwapPrice - history[history.length - 2]
-      lastOraclePrice = oracleHistory[oracleHistory.length - 1].toFixed(2)
       lastTerraSwapPrice = lastTerraSwapPrice.toFixed(2)
       if (this.state.chartType == CHART_TYPE_DAY) {
         priceChange = priceChange.toFixed(2) + ' in the last Day'
       } else {
         priceChange = priceChange.toFixed(2) + ' in the last Hour'
       }
+    }
+    if (oracleHistory.length >= 2) {
+      lastOraclePrice = oracleHistory[oracleHistory.length - 1].toFixed(2)
     }
 
     this.setState({
@@ -174,19 +197,33 @@ class App extends Component {
           {this.state.loading && <ActivityIndicator size="large" 
             color="#00ff00" style={styles.loading} />}
         </View>
-        <View style={styles.timeButtonsContainer}>
-          <Pressable style={[styles.timeButton, {
-            backgroundColor: (this.state.chartType == CHART_TYPE_HOUR ? 
-            'rgba(53, 182, 228, 0.3)' : '#323438')}]}
-             onPress={() => {this.setChartType(CHART_TYPE_HOUR)}}>
-            <Text style={styles.timeButtonText}>1H</Text>
-          </Pressable>
-          <Pressable style={[styles.timeButton, {
-            backgroundColor: (this.state.chartType == CHART_TYPE_DAY ? 
-            'rgba(53, 182, 228, 0.3)' : '#323438')}]}
-             onPress={() => {this.setChartType(CHART_TYPE_DAY)}}>
-            <Text style={styles.timeButtonText}>1D</Text>
-          </Pressable>
+        <View style={styles.buttonsContainer}>
+          <View style={styles.checkboxesContainer}>
+            <View style={styles.checkboxContainer}>
+              <CheckBox disabled={false} value={this.state.showTerraSwapPrice}
+                style={styles.checkbox} onValueChange={this.setShowTerraSwapPrice} />
+              <Text style={styles.checkboxLabel}>TerraSwap Price</Text>
+            </View>
+            <View style={styles.checkboxContainer}>
+              <CheckBox disabled={false} value={this.state.showOraclePrice} 
+                style={styles.checkbox} onValueChange={this.setShowOraclePrice} />
+              <Text style={styles.checkboxLabel}>Oracle Price</Text>
+            </View>
+          </View>
+          <View style={styles.timeButtonsContainer}>
+            <Pressable style={[styles.timeButton, {
+              backgroundColor: (this.state.chartType == CHART_TYPE_HOUR ? 
+              'rgba(53, 182, 228, 0.3)' : '#323438')}]}
+              onPress={() => {this.setChartType(CHART_TYPE_HOUR)}}>
+              <Text style={styles.timeButtonText}>1H</Text>
+            </Pressable>
+            <Pressable style={[styles.timeButton, {
+              backgroundColor: (this.state.chartType == CHART_TYPE_DAY ? 
+              'rgba(53, 182, 228, 0.3)' : '#323438')}]}
+              onPress={() => {this.setChartType(CHART_TYPE_DAY)}}>
+              <Text style={styles.timeButtonText}>1D</Text>
+            </Pressable>
+          </View>
         </View>
       </View>
     )
@@ -207,8 +244,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center'
   },
   timeButtonsContainer: {
-    width: '100%',
-    justifyContent: 'flex-end',
     flexDirection: 'row',
     marginTop: 30,
     padding: 8
@@ -243,6 +278,22 @@ const styles = StyleSheet.create({
   },
   label: {
     color: '#7f7f7f'
+  },
+  checkboxesContainer: {
+    paddingTop: 24
+  },
+  checkboxContainer: {
+    paddingLeft: 16,
+    flexDirection: 'row'
+  },
+  checkboxLabel: {
+    marginTop: 6,
+    color: '#7f7f7f'
+  },
+  buttonsContainer: {
+    width: '100%',
+    flexDirection: 'row',
+    justifyContent: 'space-between'
   }
 });
 
